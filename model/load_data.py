@@ -1,41 +1,56 @@
-import tensorflow as tf
+import cv2
 import os
+import numpy as np
 
-IMG_HEIGHT = 128
-IMG_WIDTH = 128
+def load_data(image_dir, mask_dir, size=(256, 256)):
+    images = []
+    masks = []
 
-def process_path(image_path, mask_path):
-    image = tf.io.read_file(image_path)
-    image = tf.image.decode_png(image, channels=3)
-    
-    mask = tf.io.read_file(mask_path)
-    mask = tf.image.decode_png(mask, channels=1)
+    files = os.listdir(image_dir)
 
-    image = tf.image.resize(image, [IMG_HEIGHT, IMG_WIDTH])
-    mask = tf.image.resize(mask, [IMG_HEIGHT, IMG_WIDTH], method="nearest")
+    image_files_raw = [f for f in files if "_image_" in f]
 
-    image = tf.cast(image, tf.float32) / 255.0
-    mask = tf.cast(mask, tf.uint8)
-    mask = tf.where(mask > 0, 1, 0)  # binaire
+    def get_sort_key(filename):
+        try:
+            # Sépare le nom de fichier par "_" et prend l'avant-dernier élément (le numéro)
+            # puis enlève l'extension ".png"
+            # Exemple: "image_0_image_5479.png" -> "5479"
+            numeric_part = filename.split('_')[-1].split('.')[0]
+            return int(numeric_part)
+        except (IndexError, ValueError):
+            # En cas d'erreur (format de nom de fichier inattendu),
+            # retourner une valeur qui le placera à la fin ou au début
+            return -1 # ou float('inf')
+        
+    image_files = sorted(image_files_raw, key=get_sort_key)
 
-    return image, mask
+    for img_file in image_files:
+        # Crée le nom du masque correspondant
+        mask_file = img_file.replace("_image_", "_mask_")
 
-def load_dataset(image_dir, mask_dir):
-    image_paths = sorted([os.path.join(image_dir, fname) for fname in os.listdir(image_dir)])
-    mask_paths = sorted([os.path.join(mask_dir, fname) for fname in os.listdir(mask_dir)])
+        img_path = os.path.join(image_dir, img_file)
+        mask_path = os.path.join(mask_dir, mask_file)
 
-    dataset = tf.data.Dataset.from_tensor_slices((image_paths, mask_paths))
-    dataset = dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
-    return dataset
+        if not os.path.exists(mask_path):
+            print(f"Masque manquant pour {img_file}, ignoré.")
+            continue
 
-def augment(image, mask):
-    if tf.random.uniform(()) > 0.5:
-        image = tf.image.flip_left_right(image)
-        mask = tf.image.flip_left_right(mask)
-    return image, mask
+        # Chargement des images
+        img = cv2.imread(img_path)
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
-def get_dataset():
-    train_ds = load_dataset("dataset/CapturedImages", "dataset/mask")
-    train_ds = train_ds.map(augment)
-    train_ds = train_ds.batch(32).shuffle(100).prefetch(tf.data.AUTOTUNE)
-    return train_ds
+        # Redimensionnement
+        img = cv2.resize(img, size)
+        mask = cv2.resize(mask, size)
+
+        # Normalisation
+        img = img / 255.0
+        mask = (mask > 127).astype(np.uint8)  # Binarisation
+
+        images.append(img)
+        masks.append(mask)
+
+    X = np.array(images)
+    Y = np.array(masks)[..., np.newaxis]  # Pour avoir la forme (batch, h, w, 1)
+
+    return X, Y
