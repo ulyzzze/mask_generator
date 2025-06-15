@@ -3,7 +3,7 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 
-def raycast(mask, num_rays=30, fov_degrees=90, max_length=200):
+def raycast(mask, num_rays=10, fov_degrees=90, max_length=200):
     h, w = mask.shape
     origin = (w // 2, h - 10)
 
@@ -33,14 +33,3 @@ def raycast(mask, num_rays=30, fov_degrees=90, max_length=200):
         hit_points.append((x, y))
 
     return distances, hit_points
-
-mask = cv2.imread("../dataset/mask/image_0_mask_2865.png", cv2.IMREAD_GRAYSCALE)
-distances, points = raycast(mask, num_rays=40, fov_degrees=120)
-
-print(distances)
-
-plt.imshow(mask, cmap='gray')
-for pt in points:
-    plt.plot([mask.shape[1] // 2, pt[0]], [mask.shape[0] - 1, pt[1]], 'r-')
-plt.scatter(mask.shape[1] // 2, mask.shape[0] - 1, color='green')
-plt.show()

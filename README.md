@@ -52,6 +52,9 @@ pip install matplotlib numpy scipy
 
 # Utilities
 pip install tqdm
+
+# Albumentations (Data Augmentation)
+pip install albumentations
 ```
 
 #### Complete Installation (One Command)

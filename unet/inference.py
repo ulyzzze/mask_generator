@@ -2,9 +2,10 @@ import torch
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from PIL import Image
+import numpy as np
 
-from carvana_dataset import CarvanaDataset
-from unet import UNet
+from unet.carvana_dataset import CarvanaDataset
+from unet.unet import UNet
 
 def pred_show_image_grid(data_path, model_pth, device):
     model = UNet(in_channels=3, num_classes=1).to(device)
@@ -43,50 +44,57 @@ def pred_show_image_grid(data_path, model_pth, device):
        plt.imshow(images[i-1], cmap="gray")
     plt.show()
 
+def tensor_to_numpy_mask(tensor_mask):
+    """
+    Convertit un tensor mask en numpy array pour le raycast
+    
+    Args:
+        tensor_mask: Tensor PyTorch du masque
+    
+    Returns:
+        numpy_mask: Masque en format numpy uint8
+    """
+    if tensor_mask.dim() == 3:
+        tensor_mask = tensor_mask.squeeze()
+    
+    numpy_mask = tensor_mask.numpy()
+    numpy_mask = (numpy_mask * 255).astype(np.uint8)
+    
+    return numpy_mask
 
-def single_image_inference(image_path, model_path, device="cpu"):
-    # Charger le modèle
+def single_image_inference(image_path, model_path, device="cpu", show_plot=True):
     model = UNet(in_channels=3, num_classes=1).to(device)
     model.load_state_dict(torch.load(model_path, map_location=device))
-    model.eval()  # important pour désactiver dropout, batchnorm en mode entraînement
+    model.eval()
 
-    # Transformation de l'image (redimensionner + convertir en tensor)
     transform = transforms.Compose([
-        transforms.Resize((512, 512)),
+        transforms.Resize((256, 320)),
         transforms.ToTensor(),
     ])
 
-    # Charger et transformer l'image
     img = Image.open(image_path).convert("RGB")
-    img_tensor = transform(img).unsqueeze(0).to(device)  # ajoute dimension batch
+    img_tensor = transform(img).unsqueeze(0).to(device)
 
-    # Faire la prédiction
-    with torch.no_grad():  # pas de calcul des gradients en inférence
+    with torch.no_grad():
         pred_mask = model(img_tensor)
 
-    # Post-traitement masque
-    pred_mask = pred_mask.squeeze(0).cpu()  # enlever dimension batch et ramener CPU
-    pred_mask = pred_mask.permute(1, 2, 0)  # (C, H, W) -> (H, W, C)
+    pred_mask = pred_mask.squeeze(0).cpu()
+    pred_mask = pred_mask.permute(1, 2, 0)
 
-    # Binarisation simple (seuil à 0)
     pred_mask = (pred_mask > 0).float()
 
-    # Affichage image + masque prédit
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    axes[0].imshow(img)
-    axes[0].set_title("Image originale")
-    axes[0].axis("off")
+    mask_numpy = tensor_to_numpy_mask(pred_mask)
 
-    axes[1].imshow(pred_mask.squeeze(), cmap="gray")  # masque en niveaux de gris
-    axes[1].set_title("Masque prédit")
-    axes[1].axis("off")
+    if show_plot:
+        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+        axes[0].imshow(img)
+        axes[0].set_title("Image originale")
+        axes[0].axis("off")
 
-    plt.show()
+        axes[1].imshow(pred_mask.squeeze(), cmap="gray")
+        axes[1].set_title("Masque prédit")
+        axes[1].axis("off")
 
-# Exemple d'utilisation
-if __name__ == "__main__":
-    image_path = "../dataset/CapturedImages/image_0_image_77.png"
-    model_path = "./unet.pth"
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    single_image_inference(image_path, model_path, device)
+        plt.show()
+    
+    return mask_numpy
