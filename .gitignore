@@ -1,3 +1,5 @@
 trainedIA/
 __pycache__/
-imagesOnCar/
+BuildLinux/
+rf_model.pkl
+*.pkl

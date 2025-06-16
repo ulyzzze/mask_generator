@@ -3,25 +3,26 @@ import cv2
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import time
 
 from raycast.raycast import raycast
 from unet.inference import single_image_inference
 
-if __name__ == "__main__":
-    #image_path = "unet/imagesOnCar/23_original_img.jpg"
-    image_path = "dataset/CapturedImages/image_0_image_1.png"
-    model_path = "trainedIA/ia/2epochs.pth"
+def lidars_from_predicted_mask(image_path, model):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    predicted_mask = single_image_inference(image_path, model_path, device)
+    # model = UNet(in_channels=3, num_classes=1).to(device)
+    # model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+    # model.eval()
+    #start_time = time.time()
+    predicted_mask = single_image_inference(image_path, model, device, False)      
+    distances, points = raycast(predicted_mask, num_rays=10, fov_degrees=187, show_plot=False)    
 
-    #mask = cv2.imread("dataset/mask/image_0_mask_2865.png", cv2.IMREAD_GRAYSCALE)
-    distances, points = raycast(predicted_mask, num_rays=10, fov_degrees=120)
+    return distances, points 
+    #print(f"{distances}")
 
-    print(distances)
+    #end_time = time.time()
+    #execution_time = end_time - start_time
+    #print(f"Temps d'exécution: {execution_time:.4f} secondes")
 
-    plt.imshow(predicted_mask, cmap='gray')
-    for pt in points:
-        plt.plot([predicted_mask.shape[1] // 2, pt[0]], [predicted_mask.shape[0] - 1, pt[1]], 'r-')
-    plt.scatter(predicted_mask.shape[1] // 2, predicted_mask.shape[0] - 1, color='green')
-    plt.show()
+#lidars_from_predicted_mask("dataset/CapturedImages/image_0_image_2000.png")
