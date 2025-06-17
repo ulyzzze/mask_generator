@@ -42,6 +42,12 @@ def single_image_inference(image_path, model, device="cpu", show_plot=True):
         axes[1].set_title("Masque prédit")
         axes[1].axis("off")
 
-        plt.show()
-    
-    return mask_numpy
+    plt.show()
+
+# Exemple d'utilisation
+if __name__ == "__main__":
+    image_path = "../dataset/CapturedImages/image_0_image_77.png"
+    model_path = "./unet.pth"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    single_image_inference(image_path, model_path, device)
